@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Podcast Mixer</title>
+    
+    <!-- Tailwind CSS (For styling and Auto Dark/Light mode) -->
+    <script src="./libs/tailwind.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media', // Uses system preference automatically
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome (Icons) -->
+    <link href="./libs/fontawesome/css/all.min.css" rel="stylesheet">
+
+    <!-- LIBRERIE ESTERNE (Usa queste CDN per l'online, cambiale in percorsi locali per l'offline) -->
+    <!-- WaveSurfer.js (Per la forma d'onda audio) -->
+    <script src="./libs/wavesurfer.min.js"></script>
+    <!-- LameJS (Per esportare in MP3) -->
+    <script src="./libs/lame.min.js"></script>
+
+    <style>
+        /* Custom scrollbar and drag/drop transitions */
+        .drag-over { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1) !important; }
+        body { transition: background-color 0.3s, color 0.3s; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen p-4 md:p-8 font-sans">
+
+    <!-- Main Application Container -->
+    <div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800 transition-colors duration-300">
+        
+        <!-- Header -->
+        <div class="p-8 border-b border-gray-200 dark:border-gray-800 text-center">
+            <h1 class="text-4xl font-extrabold tracking-tight flex items-center justify-center gap-4">
+                <i class="fas fa-sliders text-blue-500"></i>
+                Auto Podcast Mixer
+            </h1>
+        </div>
+
+        <div class="p-8 space-y-10">
+            
+            <!-- TRACKS SECTION (Drag & Drop) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Voice Track -->
+                <div id="dropZoneVoice" class="relative group flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
+                    <div id="uiEmptyVoice" class="text-center">
+                        <i class="fas fa-microphone-lines text-4xl text-blue-500 mb-4"></i>
+                        <h3 class="text-lg font-semibold">1. Voice Track</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Drag & drop your podcast file here</p>
+                        <button onclick="document.getElementById('voiceFile').click()" class="px-6 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-medium rounded-full hover:bg-blue-200 dark:hover:bg-blue-900 transition">Browse Files</button>
+                    </div>
+                    <div id="uiLoadedVoice" class="hidden text-center w-full">
+                        <i class="fas fa-file-audio text-4xl text-blue-500 mb-2"></i>
+                        <p id="voiceFileName" class="font-medium truncate w-full px-4"></p>
+                        <button onclick="removeTrack('voice')" class="mt-4 text-red-500 hover:text-red-600 bg-red-100 dark:bg-red-900/30 px-4 py-1 rounded-full text-sm font-bold flex items-center justify-center gap-2 mx-auto transition">
+                            <i class="fas fa-times"></i> Remove Track
+                        </button>
+                    </div>
+                    <input type="file" id="voiceFile" accept="audio/*" class="hidden" onchange="handleFileSelect(event, 'voice')">
+                </div>
+
+                <!-- Background Track -->
+                <div id="dropZoneBg" class="relative group flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
+                    <div id="uiEmptyBg" class="text-center">
+                        <i class="fas fa-music text-4xl text-purple-500 mb-4"></i>
+                        <h3 class="text-lg font-semibold">2. Background Track</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Drag & drop your music file here</p>
+                        <button onclick="document.getElementById('bgFile').click()" class="px-6 py-2 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 font-medium rounded-full hover:bg-purple-200 dark:hover:bg-purple-900 transition">Browse Files</button>
+                    </div>
+                    <div id="uiLoadedBg" class="hidden text-center w-full">
+                        <i class="fas fa-file-audio text-4xl text-purple-500 mb-2"></i>
+                        <p id="bgFileName" class="font-medium truncate w-full px-4"></p>
+                        <button onclick="removeTrack('bg')" class="mt-4 text-red-500 hover:text-red-600 bg-red-100 dark:bg-red-900/30 px-4 py-1 rounded-full text-sm font-bold flex items-center justify-center gap-2 mx-auto transition">
+                            <i class="fas fa-times"></i> Remove Track
+                        </button>
+                    </div>
+                    <input type="file" id="bgFile" accept="audio/*" class="hidden" onchange="handleFileSelect(event, 'bg')">
+                </div>
+            </div>
+
+            <!-- MIXER SETTINGS (3 Columns) -->
+            <div class="bg-gray-50 dark:bg-gray-800/80 rounded-3xl p-6 border border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-bold mb-6 text-center"><i class="fas fa-sliders-h mr-2"></i> Mixer Settings</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    
+                    <!-- Col 1: Fade In -->
+                    <div class="md:col-span-1 bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-sm flex flex-col justify-center items-center border border-gray-100 dark:border-gray-700">
+                        <i class="fas fa-arrow-trend-up text-2xl text-green-500 mb-3"></i>
+                        <label class="block text-sm font-semibold text-gray-600 dark:text-gray-300 text-center mb-2">Background Fade-In</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="fadeIn" value="5" min="0" step="0.5" class="w-20 text-center bg-gray-100 dark:bg-gray-800 border-none rounded-xl p-2 text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                            <span class="text-sm text-gray-500">sec</span>
+                        </div>
+                    </div>
+
+                    <!-- Col 2: Central Settings (2 Rows) -->
+                    <div class="md:col-span-2 space-y-4">
+                        <!-- Cell 1: Voice Settings -->
+                        <div class="bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-500"><i class="fas fa-microphone"></i></div>
+                                <span class="font-semibold">Voice Track</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs text-gray-500">Playback Speed</label>
+                                <input type="number" id="voiceSpeed" value="1.0" min="0.5" max="2.0" step="0.1" class="w-16 text-center bg-gray-100 dark:bg-gray-800 border-none rounded-lg p-1 font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                                <span class="text-xs text-gray-500">x</span>
+                            </div>
+                        </div>
+
+                        <!-- Cell 2: Background Settings -->
+                        <div class="bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-500"><i class="fas fa-music"></i></div>
+                                <span class="font-semibold">Background Settings</span>
+                                <div class="ml-auto flex items-center gap-2">
+                                    <label class="text-xs text-gray-500">Speed</label>
+                                    <input type="number" id="bgSpeed" value="1.0" min="0.5" max="2.0" step="0.1" class="w-16 text-center bg-gray-100 dark:bg-gray-800 border-none rounded-lg p-1 font-bold focus:ring-blue-500 outline-none">
+                                    <span class="text-xs text-gray-500">x</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+                                <div>
+                                    <label class="block text-xs text-gray-500 text-center mb-1">Ducking Vol.</label>
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="number" id="duckVolume" value="15" min="0" max="100" class="w-14 text-center bg-gray-100 dark:bg-gray-800 rounded p-1 text-sm font-bold outline-none"><span class="text-xs">%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 text-center mb-1">Anticipation</label>
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="number" id="duckOffset" value="2" min="0" step="0.5" class="w-14 text-center bg-gray-100 dark:bg-gray-800 rounded p-1 text-sm font-bold outline-none"><span class="text-xs">s</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 text-center mb-1">Transition</label>
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="number" id="duckFadeTime" value="1.5" min="0.1" step="0.1" class="w-14 text-center bg-gray-100 dark:bg-gray-800 rounded p-1 text-sm font-bold outline-none"><span class="text-xs">s</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Col 3: Fade Out -->
+                    <div class="md:col-span-1 bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-sm flex flex-col justify-center items-center border border-gray-100 dark:border-gray-700">
+                        <i class="fas fa-arrow-trend-down text-2xl text-red-500 mb-3"></i>
+                        <label class="block text-sm font-semibold text-gray-600 dark:text-gray-300 text-center mb-2">Background Fade-Out</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="fadeOut" value="5" min="0" step="0.5" class="w-20 text-center bg-gray-100 dark:bg-gray-800 border-none rounded-xl p-2 text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                            <span class="text-sm text-gray-500">sec</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- GENERATE BUTTON -->
+            <div class="flex flex-col items-center pb-4">
+                <button id="mixBtn" class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 px-10 rounded-full shadow-lg transform transition hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 text-lg">
+                    <i class="fas fa-magic"></i> Generate Mix
+                </button>
+                <div id="statusMsg" class="mt-4 text-sm font-medium h-6 text-gray-500"></div>
+            </div>
+
+            <!-- PLAYER SECTION (Hidden until generated) -->
+            <div id="playerSection" class="hidden flex-col items-center space-y-6 pt-8 border-t border-gray-200 dark:border-gray-800">
+                <h3 class="text-xl font-bold text-center">Your Final Mix</h3>
+                
+                <!-- Waveform container -->
+                <div class="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 shadow-inner border border-gray-200 dark:border-gray-700">
+                    <div id="waveform" class="w-full h-32 cursor-pointer"></div>
+                </div>
+
+                <!-- Custom Player Controls -->
+                <div class="flex items-center justify-center gap-6">
+                    <button id="btnPrevSpeed" class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition" title="Decrease Speed">
+                        <i class="fas fa-backward"></i>
+                    </button>
+                    
+                    <button id="btnPlayPause" class="w-16 h-16 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xl shadow-lg transform transition hover:scale-105">
+                        <i class="fas fa-play" id="playIcon"></i>
+                    </button>
+                    
+                    <button id="btnNextSpeed" class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition" title="Increase Speed">
+                        <i class="fas fa-forward"></i>
+                    </button>
+                </div>
+                <div class="text-sm text-gray-500 font-medium">Playback Speed: <span id="speedDisplay" class="text-blue-500">1.0x</span></div>
+
+                <!-- Download Section -->
+                <div class="flex flex-col items-center gap-4 pt-6">
+                    <button id="btnDownload" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105 flex items-center gap-2">
+                        <i class="fas fa-download"></i> Download mix
+                    </button>
+                    <div class="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <span class="text-sm font-medium">Format:</span>
+                        <select id="formatSelect" class="bg-transparent font-bold outline-none cursor-pointer">
+                            <option value="mp3" selected>.mp3</option>
+                            <option value="wav">.wav</option>
+                            <option value="ogg">.ogg</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // File Storage
+        let storedVoiceFile = null;
+        let storedBgFile = null;
+        let generatedAudioBuffer = null;
+        
+        // Player State
+        let wavesurfer = null;
+        const speeds = [0.5, 1.0, 1.5, 2.0];
+        let currentSpeedIndex = 1; // starts at 1.0x
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // --- DRAG AND DROP HANDLING ---
+        function setupDropZone(zoneId, type) {
+            const dropZone = document.getElementById(zoneId);
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processFile(e.dataTransfer.files[0], type);
+                }
+            });
+        }
+        setupDropZone('dropZoneVoice', 'voice');
+        setupDropZone('dropZoneBg', 'bg');
+
+        function handleFileSelect(event, type) {
+            if (event.target.files && event.target.files[0]) {
+                processFile(event.target.files[0], type);
+            }
+        }
+
+        function processFile(file, type) {
+            if (!file.type.startsWith('audio/')) {
+                alert("Please select a valid audio file.");
+                return;
+            }
+            if (type === 'voice') {
+                storedVoiceFile = file;
+                document.getElementById('voiceFileName').textContent = file.name;
+                document.getElementById('uiEmptyVoice').classList.add('hidden');
+                document.getElementById('uiLoadedVoice').classList.remove('hidden');
+            } else {
+                storedBgFile = file;
+                document.getElementById('bgFileName').textContent = file.name;
+                document.getElementById('uiEmptyBg').classList.add('hidden');
+                document.getElementById('uiLoadedBg').classList.remove('hidden');
+            }
+        }
+
+        window.removeTrack = function(type) {
+            if (type === 'voice') {
+                storedVoiceFile = null;
+                document.getElementById('voiceFile').value = '';
+                document.getElementById('uiEmptyVoice').classList.remove('hidden');
+                document.getElementById('uiLoadedVoice').classList.add('hidden');
+            } else {
+                storedBgFile = null;
+                document.getElementById('bgFile').value = '';
+                document.getElementById('uiEmptyBg').classList.remove('hidden');
+                document.getElementById('uiLoadedBg').classList.add('hidden');
+            }
+        };
+
+        // --- AUDIO ENGINE ---
+        async function loadAudioFile(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            return await audioCtx.decodeAudioData(arrayBuffer);
+        }
+
+        function setStatus(text, isError = false) {
+            const el = document.getElementById('statusMsg');
+            el.innerHTML = text;
+            el.className = `mt-4 text-sm font-medium h-6 ${isError ? 'text-red-500' : 'text-blue-500'}`;
+        }
+
+        document.getElementById('mixBtn').addEventListener('click', async () => {
+            if (!storedVoiceFile || !storedBgFile) {
+                alert("Please load both Voice and Background tracks before generating.");
+                return;
+            }
+
+            const btn = document.getElementById('mixBtn');
+            btn.disabled = true;
+            document.getElementById('playerSection').classList.add('hidden');
+            
+            try {
+                setStatus('<i class="fas fa-spinner fa-spin"></i> Decoding audio... (this may take a moment)');
+
+                // Read Inputs
+                const fadeIn = parseFloat(document.getElementById('fadeIn').value) || 0;
+                const fadeOut = parseFloat(document.getElementById('fadeOut').value) || 0;
+                const voiceRate = parseFloat(document.getElementById('voiceSpeed').value) || 1.0;
+                const bgRate = parseFloat(document.getElementById('bgSpeed').value) || 1.0;
+                const duckVolume = (parseFloat(document.getElementById('duckVolume').value) || 15) / 100;
+                const duckOffset = parseFloat(document.getElementById('duckOffset').value) || 0;
+                const duckFadeTime = parseFloat(document.getElementById('duckFadeTime').value) || 1;
+
+                // Decode
+                const voiceBufferRaw = await loadAudioFile(storedVoiceFile);
+                const bgBufferRaw = await loadAudioFile(storedBgFile);
+
+                // Calculate NEW durations based on Playback Speed
+                const voiceDuration = voiceBufferRaw.duration / voiceRate;
+                const bgDuration = bgBufferRaw.duration / bgRate;
+
+                setStatus('<i class="fas fa-cog fa-spin"></i> Calculating mix timings...');
+
+                if (bgDuration < voiceDuration) {
+                    alert("Warning: Background track (adjusted for speed) is shorter than Voice track. Mix may be truncated.");
+                }
+
+                const totalDuration = Math.max(bgDuration, voiceDuration);
+                const voiceStartTime = Math.max(0, (totalDuration - voiceDuration) / 2);
+                const voiceEndTime = voiceStartTime + voiceDuration;
+
+                // Create Offline Context
+                const offlineCtx = new OfflineAudioContext(
+                    2, // Stereo
+                    Math.ceil(totalDuration * bgBufferRaw.sampleRate), 
+                    bgBufferRaw.sampleRate
+                );
+
+                // Setup Sources
+                const bgSource = offlineCtx.createBufferSource();
+                bgSource.buffer = bgBufferRaw;
+                bgSource.playbackRate.value = bgRate;
+                
+                const voiceSource = offlineCtx.createBufferSource();
+                voiceSource.buffer = voiceBufferRaw;
+                voiceSource.playbackRate.value = voiceRate;
+
+                // Setup Gains
+                const bgGain = offlineCtx.createGain();
+                const voiceGain = offlineCtx.createGain();
+
+                bgSource.connect(bgGain);
+                bgGain.connect(offlineCtx.destination);
+                
+                voiceSource.connect(voiceGain);
+                voiceGain.connect(offlineCtx.destination);
+
+                // --- AUTOMATIONS ---
+                const t = bgGain.gain;
+                t.setValueAtTime(0, 0); 
+                
+                // 1. Fade-in
+                t.linearRampToValueAtTime(1, fadeIn);
+
+                // 2. Ducking Down
+                const duckStart = Math.max(fadeIn, voiceStartTime - duckOffset - duckFadeTime);
+                const duckReachLow = Math.max(fadeIn, voiceStartTime - duckOffset);
+                t.setValueAtTime(1, duckStart); 
+                t.linearRampToValueAtTime(duckVolume, duckReachLow); 
+
+                // 3. Ducking Up
+                const upStart = voiceEndTime + duckOffset;
+                const upReachHigh = Math.min(totalDuration - fadeOut, upStart + duckFadeTime);
+                t.setValueAtTime(duckVolume, upStart);
+                t.linearRampToValueAtTime(1, upReachHigh);
+
+                // 4. Fade-out
+                t.setValueAtTime(1, Math.max(0, totalDuration - fadeOut)); 
+                t.linearRampToValueAtTime(0, totalDuration); 
+
+                // Start Playback in offline context
+                bgSource.start(0);
+                voiceSource.start(voiceStartTime);
+
+                setStatus('<i class="fas fa-microchip fa-spin"></i> Rendering high-speed mix...');
+
+                generatedAudioBuffer = await offlineCtx.startRendering();
+                
+                setStatus('<i class="fas fa-check"></i> Mix complete!');
+                setTimeout(() => setStatus(''), 2000);
+
+                initPlayer(generatedAudioBuffer);
+
+            } catch (error) {
+                console.error(error);
+                setStatus(`Error: ${error.message}`, true);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // --- PLAYER (WAVESURFER) ---
+        function initPlayer(buffer) {
+            document.getElementById('playerSection').classList.remove('hidden');
+            document.getElementById('playerSection').classList.add('flex');
+
+            // Destroy previous instance if exists
+            if (wavesurfer) {
+                wavesurfer.destroy();
+            }
+
+            // Convert buffer to temporary Blob for Wavesurfer
+            const tempWav = audioBufferToWavBlob(buffer);
+            const url = URL.createObjectURL(tempWav);
+
+            // Determine waveform color based on theme
+            const isDark = document.documentElement.classList.contains('dark') || 
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: isDark ? '#4b5563' : '#cbd5e1', // gray-600 vs gray-300
+                progressColor: '#3b82f6', // blue-500
+                barWidth: 2,
+                barRadius: 2,
+                cursorWidth: 2,
+                cursorColor: '#8b5cf6', // purple-500
+                height: 100,
+                normalize: true
+            });
+
+            wavesurfer.load(url);
+
+            // Play/Pause UI logic
+            wavesurfer.on('play', () => {
+                document.getElementById('playIcon').classList.replace('fa-play', 'fa-pause');
+            });
+            wavesurfer.on('pause', () => {
+                document.getElementById('playIcon').classList.replace('fa-pause', 'fa-play');
+            });
+            
+            // Reset speed
+            currentSpeedIndex = 1; 
+            updateSpeedUI();
+        }
+
+        // Custom Player Buttons
+        document.getElementById('btnPlayPause').addEventListener('click', () => {
+            if (wavesurfer) wavesurfer.playPause();
+        });
+
+        document.getElementById('btnNextSpeed').addEventListener('click', () => {
+            if (currentSpeedIndex < speeds.length - 1) {
+                currentSpeedIndex++;
+                updateSpeedUI();
+            }
+        });
+
+        document.getElementById('btnPrevSpeed').addEventListener('click', () => {
+            if (currentSpeedIndex > 0) {
+                currentSpeedIndex--;
+                updateSpeedUI();
+            }
+        });
+
+        function updateSpeedUI() {
+            const newSpeed = speeds[currentSpeedIndex];
+            document.getElementById('speedDisplay').textContent = newSpeed.toFixed(1) + 'x';
+            if (wavesurfer) wavesurfer.setPlaybackRate(newSpeed);
+        }
+
+        // --- EXPORT & DOWNLOAD ---
+        document.getElementById('btnDownload').addEventListener('click', async () => {
+            if (!generatedAudioBuffer) return;
+            
+            const format = document.getElementById('formatSelect').value;
+            const btn = document.getElementById('btnDownload');
+            const originalHtml = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            setTimeout(async () => {
+                try {
+                    let blob, extension;
+
+                    if (format === 'wav') {
+                        blob = audioBufferToWavBlob(generatedAudioBuffer);
+                        extension = 'wav';
+                    } else if (format === 'mp3') {
+                        if (typeof lamejs === 'undefined') {
+                            throw new Error("LameJS library not loaded. MP3 export unavailable offline.");
+                        }
+                        blob = audioBufferToMp3Blob(generatedAudioBuffer);
+                        extension = 'mp3';
+                    } else if (format === 'ogg') {
+                        // Natively exporting to actual OGG offline requires massive Wasm libraries.
+                        // We warn the user and fallback to WebM (which supports OGG/Opus inside) or WAV.
+                        alert("Note: True offline OGG encoding requires heavy external libraries. Saving as standard WAV with .ogg extension for compatibility.");
+                        blob = audioBufferToWavBlob(generatedAudioBuffer);
+                        extension = 'ogg'; 
+                    }
+
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `mix.${extension}`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    alert("Export Error: " + e.message);
+                } finally {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+            }, 100); // Tiny timeout to let UI update
+        });
+
+        // --- AUDIO FORMATTERS ---
+
+        function audioBufferToWavBlob(buffer) {
+            const numOfChan = buffer.numberOfChannels;
+            const length = buffer.length * numOfChan * 2 + 44;
+            const output = new ArrayBuffer(length);
+            const view = new DataView(output);
+            const channels = [];
+            let sample, offset = 0, pos = 0;
+
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157); 
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(buffer.sampleRate); setUint32(buffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
+
+            for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+
+            while (pos < length) {
+                for (let i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset])); 
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; 
+                    view.setInt16(pos, sample, true); 
+                    pos += 2;
+                }
+                offset++;
+            }
+            return new Blob([output], { type: "audio/wav" });
+
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+        }
+
+        // LameJS MP3 Encoder
+        function audioBufferToMp3Blob(buffer) {
+            const channels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            // kbps: 128 is good, 320 is max. Using 192 for high quality.
+            const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 192); 
+            const mp3Data = [];
+
+            const left = buffer.getChannelData(0);
+            const right = channels > 1 ? buffer.getChannelData(1) : left;
+
+            // Convert Float32 to Int16
+            const sampleBlockSize = 1152; 
+            const leftInt = new Int16Array(left.length);
+            const rightInt = new Int16Array(right.length);
+
+            for (let i = 0; i < left.length; i++) {
+                leftInt[i] = left[i] < 0 ? left[i] * 32768 : left[i] * 32767;
+                rightInt[i] = right[i] < 0 ? right[i] * 32768 : right[i] * 32767;
+            }
+
+            for (let i = 0; i < leftInt.length; i += sampleBlockSize) {
+                const leftChunk = leftInt.subarray(i, i + sampleBlockSize);
+                const rightChunk = rightInt.subarray(i, i + sampleBlockSize);
+                let mp3buf;
+                if (channels === 1) {
+                    mp3buf = mp3encoder.encodeBuffer(leftChunk);
+                } else {
+                    mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+                }
+                if (mp3buf.length > 0) mp3Data.push(mp3buf);
+            }
+            const mp3buf = mp3encoder.flush(); 
+            if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+            
+            return new Blob(mp3Data, { type: 'audio/mp3' });
+        }
+    </script>
+</body>
+</html>
