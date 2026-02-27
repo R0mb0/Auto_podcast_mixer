@@ -5,15 +5,21 @@
 A lightning-fast, client-side web app to automatically mix podcast vocals with background music. Features smart audio ducking, fade in/out, waveform preview, and local MP3/WAV export. 100% private, runs entirely in your browser with zero server uploads!
 </p>
 
-<!-- INSERISCI QUI I TUOI BADGE (Codacy, Actions, License, Paypal, ecc.) -->
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/18b56a57238e45289ab85bb1e3d7d54d)](https://app.codacy.com/gh/R0mb0/Auto_podcast_mixer/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![pages-build-deployment](https://github.com/R0mb0/Auto_podcast_mixer/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/R0mb0/Auto_podcast_mixer/actions/workflows/pages/pages-build-deployment)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/R0mb0/Auto_podcast_mixer)
+[![Open Source Love svg3](https://badges.frapsoft.com/os/v3/open-source.svg?v=103)](https://github.com/R0mb0/Auto_podcast_mixer)
+[![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/license/mit)
+[![Donate](https://img.shields.io/badge/PayPal-Donate%20to%20Author-blue.svg)](http://paypal.me/R0mb0)
 
 <h2><a href="https://r0mb0.github.io/Auto_podcast_mixer/">👉 Click here to test the app! 👈</a></h2>
 
 </div>
 
-<!-- INSERISCI QUI I TUOI SCREENSHOT -->
+[![0001.png](https://github.com/R0mb0/Auto_podcast_mixer/blob/main/Readme_imgs/0001.png?raw=true)](https://r0mb0.github.io/Auto_podcast_mixer/)
+[![0002.png](https://github.com/R0mb0/Auto_podcast_mixer/blob/main/Readme_imgs/0002.png?raw=true)](https://r0mb0.github.io/Auto_podcast_mixer/)
+[![0003.png](https://github.com/R0mb0/Auto_podcast_mixer/blob/main/Readme_imgs/0003.png?raw=true)](https://r0mb0.github.io/Auto_podcast_mixer/)
 
-<!-- Esempio: [suspicious link removed] -->
 
 <hr>
 
